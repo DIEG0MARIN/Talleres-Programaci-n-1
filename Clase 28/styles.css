@@ -1,0 +1,6 @@
+/* Hace que los bloques de código tengan scroll horizontal */
+  pre code {
+    white-space: pre;       /* evita que se parta la línea */
+      overflow-x: auto;       /* activa la barra de desplazamiento horizontal */
+      display: block;
+  }

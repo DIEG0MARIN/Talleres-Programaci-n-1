@@ -1,0 +1,289 @@
+---
+title: "Manipulación de datos en R: Filtros, subset y sample"
+subtitle: "Guía práctica para estudiantes"
+author: "Julián Mauricio Fajardo"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output:
+  html_document:
+    theme: cosmo # es un diseño preconfigurado de HTML
+    toc: true # Inserta una tabla de contenido
+    toc_float: true #Hace que la tabla de contenido se desplace al costado
+    toc_depth: 3 # Que tanta profundidad  se quiere en el documento
+    code_folding: hide # Se puede mostrar el codigo R u ocultar con un click
+  pdf_document: # Opción para descargar el PDF
+    toc: true
+    toc_depth: 3
+fontsize: 12pt    # Tamaño de letra
+mainfont: "Times New Roman"   # Tipo de letra
+monofont: "Fira Code"   # Tipo de fuente para el codigo
+geometry: margin=2cm  #Margenes
+linkcolor: blue  # Color de los hipervinculos
+urlcolor: blue
+---
+
+## Opciones globales de knitr (afectan a todos los chunks)
+
+```{r}
+knitr::opts_chunk$set(
+  echo        = TRUE,    # mostrar código por defecto
+  message     = FALSE,   # ocultar mensajes de librerías
+  warning     = FALSE,   # ocultar advertencias
+  error       = FALSE,   # no continuar si hay error (TRUE para clases en vivo)
+  fig.align   = "center",
+  fig.width   = 7,       # en pulgadas
+  fig.height  = 4.5,
+  dpi         = 120,
+  out.width   = "100%",  # figuras responden al ancho de página
+  cache       = FALSE,   # TRUE si quieres acelerar compilaciones repetidas
+  comment     = "#>"     # prefijo de salidas
+)
+
+# Opciones R globales (opcionales)
+options(
+  scipen = 999,          # menos notación científica
+  digits = 4             # dígitos por defecto en impresiones
+)
+
+# Semilla global para replicabilidad en ejemplos con aleatoriedad
+set.seed(123) # Fijar semilla
+
+# Datos base que usaremos
+data(mtcars)
+data(iris)
+
+```
+
+# Manipulación de base de datos
+
+Hoy vamos a explorar la manipulación básica de datos en R base, es decir, sin el uso de librerías externas como tidyverse. Esto es importante porque nos da un entendimiento profundo del lenguaje y nos permite usar herramientas disponibles siempre en cualquier instalación de R.
+
+Los tres bloques iniciales son:
+
+-   Filtros con corchetes y paréntesis.
+
+-   subset().
+
+-   sample().
+
+-   
+
+Ampliaremos la clase con funciones muy útiles en la práctica: which(), unique(), sort(), order(), seq(), rep(), combinaciones de data frames, manejo de NA y resúmenes rápidos.
+
+## Filtros con corchetes y paréntesis
+
+Recordar que un data frame en R se indexa con [filas, columnas].
+
+Se pueden poner condiciones lógicas dentro de los corchetes.
+
+:::example
+En la base mtcars, vamos a filtrar los autos con mpg mayor a 25
+
+```{r}
+a1 <- mtcars[mtcars$mpg > 25,] # Se filtra lo solicitado
+head(a1)
+```
+
+:::
+
+
+
+
+
+Veamos otro ejemplo:
+:::example
+
+filtrar autos con 4 cilindros y pidams a R solo mostrar las columnas mpg y hp
+
+```{r}
+a2 <- mtcars[mtcars$cyl == 4, c("mpg","hp")]
+head(a2)
+```
+
+:::
+
+
+Los paréntesis se usan para agrupar condiciones y evitar ambigüedades.
+
+
+:::example
+Filtrar autos con mpg mayor a 22 y hp menor a 110 y le pedimos que muestre las primeras 4 columnas
+
+```{r}
+a3 <- mtcars[mtcars$mpg > 22 & mtcars$hp < 90, 1:4]
+head(a3)
+```
+:::
+
+
+Error común: olvidar la coma , y terminar seleccionando una columna cuando se querían filas.
+
+## Función subset()
+
+Sintaxis: subset(x, subset, select, drop = FALSE).
+
+Ventaja: no es necesario escribir df\$columna.
+
+Riesgo: en funciones programadas puede dar problemas de scoping.
+
+::: example
+
+usa la base de datos "iris" y selecciona las observaciones de la especie 
+"setosa"
+
+```{r}
+a4 <- subset(x = iris,# aqui se coloca la base de datos a filtrar
+             Species == "setosa", # Se coloca el filtro o condición
+             )
+
+head(a4)
+
+```
+
+:::
+
+
+
+Veamos otro ejemplo:
+
+:::example
+
+Selecciona las flores de la especie "versicolor" con ancho de sepalo mayor a 3 y selecciona las columnas longitud y ancho de sepal
+
+```{r}
+a5 <-  subset(x = iris, # Nombre de la base de datos
+              Species == "versicolor" & Sepal.Width > 3, # Condiciones
+              select = c(1,2) 
+              )
+head(a5)
+```
+:::
+
+## Función sample()
+
+Usada para muestreos aleatorios.
+
+Parámetros: x, size, replace, prob.
+
+:::example
+
+considere el siguiente conjunto de números$ S = \{1,2,3,4,5,6,7,8,9,0\}$.
+Saque dos muestras aleatorias:
+1) Muestra de 5 numeros sin reemplazo
+2) Muestra  de 20 numeros con reemplazo
+
+```{r}
+ s <- 0:9
+sample(x= s , # aqui se pone el conjunto que se va a trabajar
+       size = 5, # Tamaño de la muestra
+       replace = FALSE, # Se pone F si es sin reemplazo
+       
+       )
+```
+Ahora se resuelve el 2
+
+```{r}
+
+s <- 0:9
+sample(x= s , # aqui se pone el conjunto que se va a trabajar
+       size = 20, # Tamaño de la muestra
+       replace = TRUE, # Se pone F si es sin reemplazo
+)
+```
+:::
+
+Error común: olvidar replace = TRUE cuando size \< longitud de x.
+
+## which() y operadores lógicos
+
+which() devuelve los índices que cumplen una condición.
+
+
+Muy útil cuando necesitamos posiciones.
+
+:::example
+
+Obtener indices de autos que cumplen que mpg > 30
+
+```{r}
+y <- which(x = mtcars$mpg > 30)
+mtcars[y,]
+```
+:::
+
+## unique(), sort(), order()
+
+unique(): elimina duplicados.
+
+sort(): ordena vectores.
+
+
+
+```
+
+
+
+
+
+
+:::
+
+
+order(): da los índices de ordenamiento (útil en data frames).
+
+:::example
+vamos a ordenar la base mtcars por orden de rendimiento de galon de gasolina
+
+```{r}
+a7 <- mtcars[order(mtcars$mpg),]
+a7
+```
+
+
+
+
+:::
+
+
+
+
+
+
+
+
+
+:::example
+
+
+```{r}
+z <- rep(x = 1:2 ,# colocar la lista de objetos
+         20 # Numero de repeticiones que hara de esa lista
+         )
+z
+
+```
+```{r}
+unique(z)
+```
+
+
+:::
+
+## Secuencias con seq() y rep()
+
+seq() genera secuencias con pasos definidos.
+
+rep() repite valores.
+
+## Combinación de data frames
+
+cbind() → une columnas.
+
+rbind() → une filas.
+
+merge() → une por columnas en común (tipo join).
+
+## Manejo de valores perdidos
+
+is.na() → identifica NA.
+
+na.omit() → elimina filas con NA.
