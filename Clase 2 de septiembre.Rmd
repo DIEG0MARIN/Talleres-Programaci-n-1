@@ -1,0 +1,365 @@
+---
+title: "Manipulación de datos en **base R**. Parte 2"
+author: "Curso de Programación 1 — Profesor: J. M. Fajardo"
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+  pdf_document:
+    toc: true
+    number_sections: true
+lang: es
+---
+
+
+## 1. rbind(): unir por filas (agregar observaciones)
+**Idea clave.** `rbind()` apila objetos “uno debajo del otro”. Es la operación adecuada para **agregar filas** cuando dos tablas comparten las **mismas columnas** (por nombre).
+
+**Sintaxis:** `rbind(..., deparse.level = 1)`
+
+**Parámetros principales**
+- `...` (obligatorio): data frames, matrices o vectores a apilar.
+- `deparse.level` (opcional): controla los nombres de las filas creadas a partir del nombre de los objetos.
+
+**Requisitos y comportamiento**
+- En **data frames**: si a un objeto le falta alguna columna por **nombre**, `rbind()` la crea con `NA`. 
+- En **matrices**: debe coincidir el **número de columnas**; puede haber coerción de tipos.
+- **Efecto visible**: más filas, mismas columnas.
+
+
+
+
+
+```{r}
+
+# Curso A
+curso_A <- data.frame(
+  Estudiantes = c("Diego", "Kelly", "Fernando"),
+  Nota1 = c(4.5, 3.2, 4)
+)
+
+# Curso B
+curso_B <- data.frame(
+  Estudiantes = c("Liam", "Johana", "Daniel"),
+  Nota1 = c(4.7, 3.5, 4.2)
+)
+
+
+
+```
+
+# Juntamos por filas 
+```{r}
+Estudiantes <- rbind(curso_A, curso_B)
+
+
+```
+
+
+
+
+
+
+---
+
+## 2. cbind(): unir por columnas (agregar variables)
+**Idea clave.** `cbind()` pega objetos **lado a lado**. Es la operación adecuada para **agregar columnas** cuando todos los objetos tienen el **mismo número de filas**.
+
+**Sintaxis:** `cbind(..., deparse.level = 1)`
+
+**Parámetros principales**
+- `...` (obligatorio): vectores, matrices o data frames con **igual número de filas**.
+- `deparse.level` (opcional): nombres inferidos a partir de los objetos.
+
+**Requisitos y comportamiento**
+- Si se usa un vector de longitud 1, R puede **reciclar**; evítenlo salvo que sea intencional.
+- En **matrices** puede haber **coerción** a un tipo común; en **data frames** cada columna conserva su clase.
+- **Efecto visible**: más columnas, mismas filas.
+
+```{r}
+Nota2 <- c(4, 3.5, 4.2, 3.3, 4.6, 4.8)
+Estudiantes <- cbind(Estudiantes, Nota2)
+
+
+```
+
+# Revisar mejor esta parte con ejemplos
+
+
+
+---
+
+## 3. merge(): integrar tablas por claves (joins)
+**Idea clave.** `merge()` permite **cruzar** dos data frames por una o varias **claves** (columnas que identifican coincidencias). Equivale a los *joins* de SQL.
+
+**Sintaxis base**
+```
+merge(x, y, by = ..., by.x = ..., by.y = ...,
+      all = FALSE, all.x = FALSE, all.y = FALSE,
+      sort = TRUE, suffixes = c(".x", ".y"))
+```
+
+**Parámetros clave**
+- `x`, `y` (obligatorio): data frames a unir.
+- `by`: nombre(s) de columna **comunes** usados como clave(s). Recomendado **especificarlo**.
+- `by.x`, `by.y`: cuando las claves tienen **nombres distintos** en `x` y `y`.
+- `all`: `TRUE` → **full outer join** (todas las filas de ambos).
+- `all.x`: `TRUE` → **left join** (todas las filas de `x`).
+- `all.y`: `TRUE` → **right join** (todas las filas de `y`).
+- `sort`: ordena por la(s) clave(s) tras unir (por defecto `TRUE`).
+- `suffixes`: sufijos para resolver nombres de columnas **no clave** repetidos.
+
+**Comportamientos importantes**
+- **Claves duplicadas** generan combinaciones **muchas-a-muchas** (producto cartesiano de coincidencias).
+- Mantiene clases de columnas; puede **reordenar filas** si `sort = TRUE`.
+- Acepta **múltiples claves** (vector de nombres).
+
+
+** Ejemplo 2**
+
+Considere otra base de datos relacionada con la anterior. integraremos el nivel de asistencia de los estudiantes
+
+```{r}
+
+asistencia <- data.frame(
+  Estudiantes = c("Diego", "Fernando", "Marin", "Gaitan"),
+  Asistencia = c("Alta", "Media", "Baja", "Alta")
+)
+
+```
+
+Vamos a juntar las dos bases de diferentes maneras:
+
+```{r}
+merge1 <- merge(x= Estudiantes, # la primera tabla
+               y= asistencia, # la segunda tabla
+               by = "Estudiantes")
+```
+Aqui por defecto hace " inner join" , es decir solo junta las que coinciden
+
+Ahora hacer un " left join"
+
+```{r}
+leftjoin <- merge(x = Estudiantes, y = asistencia,
+                  by = "Estudiantes",
+                  all.x = TRUE)
+
+
+
+print(leftjoin)
+```
+
+
+```{r}
+right <- merge(x =Estudiantes,
+                y= asistencia,
+                by = "Estudiantes",
+                all.x = T)
+
+```
+
+
+Que ocurre si hay claves diferentes en las tablas para junatr y aún asi quiero hacerlas coincidir?
+
+
+# Juntar las dos bases de datos
+```{r}
+tabla1 <- data.frame(k=c(1,2), z=c("z1","z2"))
+tabla2 = data.frame(id=c(2,3), w = c("w2","w3"))
+merge(tabla1,tabla2,
+      by.x = "k", # esta es la clave o etiqueta en la tabla 1
+      by.y = "id", # esta es la clave o etiqeuta en la tabla2
+      all = TRUE
+      )
+```
+
+---
+
+
+# REVISAR ENTORNO FUNCTION
+
+## 4. Familia apply: vectorizar cálculos
+**Idea clave.** La familia `apply` evita bucles explícitos para **resumir por filas/columnas**, operar sobre **listas** o **grupos**.
+
+### 4.1 `apply(X, MARGIN, FUN, ...)`
+- **Uso**: matrices/arrays (o data frames tratables como matriz).
+- `MARGIN = 1` (por filas), `2` (por columnas).
+
+
+- **Ejemplo guiado**: calcular **promedio por estudiante** y **promedio por examen** a partir de `Nota1` y `Nota2`.
+
+En este caso se juntaron las dos columnas se sumaron y se dividieron en 2
+```{r}
+Estudiantes <- leftjoin
+Promedio <-(Estudiantes$Nota1+Estudiantes$Nota2)/2
+Promedio
+
+# Añadir la nueva columa
+cbind(Estudiantes, Promedio)
+
+```
+
+Este proceso es correcto, pero es muy rudimentario . lo haremos de manera un poco profesional.
+
+
+```{r}
+Notas <-Estudiantes[,c(2,3)] # en este caso se filtarn columnas
+Promedio <- apply(X=Notas, # la tabla o para aplicar la función
+                  MARGIN = 1, # es 1 por que se aplicara a cada fila
+                  FUN = mean # Función para aplicar 
+)
+Estudiantes <- cbind(Estudiantes, Promedio)
+Estudiantes
+
+```
+
+
+
+**Atajo recomendado para medias**: `rowMeans()` y `colMeans()` (más directas y sin coerción).
+
+### 4.2 `lapply(X, FUN, ...)` / `sapply(...)` / `vapply(...)`
+- `lapply`: devuelve **lista** (una salida por elemento de `X`).
+- `sapply`: intenta **simplificar** a vector/matriz.
+- `vapply`: versión **tipada/segura** (exige `FUN.VALUE`).
+
+
+- **Ejemplo guiado**: una lista de vectores con notas, obtener media y desviación de cada uno.
+
+```{r}
+
+set.seed(123)
+datos <- list(
+  a = 1:10,
+  b = seq(from = 2, to =500 , by = 45),
+  c = rnorm(n = 100 , mean = 2, sd = 1)
+)
+x <-lapply(datos, # Poner aqui la lista
+       mean # poner la funci´ón a la que se quiere aplicar a cada element
+       )
+       
+x
+
+```
+
+Que ocurre si usamos la función `sapply`:
+# es similar a convertir una lista en un vector
+
+```{r}
+
+y <-sapply(datos, # Poner aqui la lista
+       mean # poner la funci´ón a la que se quiere aplicar a cada element
+       )
+
+y
+
+```
+
+
+
+
+### 4.3 `mapply(FUN, ...)`
+- Vectoriza sobre **múltiples** argumentos a la vez.
+- **Ejemplo guiado**: combinación lineal elemento a elemento de tres vectores.
+
+
+### 4.4 `tapply(X, INDEX, FUN, ...)` y `by(data, INDICES, FUN, ...)`
+- `tapply`: aplica por **grupos** definidos por un **factor** (o lista de factores).
+- `by`: pensado para data frames completos; devuelve objeto “by”.
+- **Ejemplo guiado**: media de una variable por grupo (p. ej., categoría de asistencia).
+
+
+### 4.5 `replicate(n, expr, simplify = TRUE)`
+- Repite la evaluación de una expresión (útil en **simulaciones**).
+
+- **Ejemplo guiado**: simular medias de muestras aleatorias y resumir.
+
+
+
+
+# Vamos a simuloar la cantidad de personas que pasa por un puent a diferentes horas del dia ( un solo dia)
+
+
+```{r}
+set.seed(123)
+z <- rpois(n= 100, # 100 momentos en el dia
+            lambda = 40)
+z
+
+
+
+```
+
+)
+
+```{r}
+media <- mean(z); desv <- sd(z)
+cbind(media, desv)
+```
+
+Pero no solo quiero hacer una simulación de 100 datos , se quiere hacer 30 simulaciones de 100 datos, a continuación se hará.
+
+```{r}
+simulaciones <- replicate(n=30, { rpois(n= 100, # 100 momentos en el dia
+            lambda = 40)}
+            )
+simulaciones
+```
+
+
+
+
+
+# Calcula la media y la desviacion estandar de cada una de esas simulaciones
+
+```{r}
+media <- apply(X= simulaciones,
+               MARGIN = 2 , # EL 2 ES POR QUE ES POR COLUMNA
+               FUN= mean)
+media
+```
+```{r}
+
+desviacion <- apply(X= simulaciones,
+               MARGIN = 2 , # EL 2 ES POR QUE ES POR COLUMNA
+               FUN= sd)
+sigma <-sd(desviacion)
+sigma
+
+```
+
+
+
+
+
+
+
+---
+
+## 5. Errores comunes y buenas prácticas
+- **Especifica `by` en `merge()`**: evita uniones accidentales por columnas con el mismo nombre.
+- **Verifica duplicados de clave** antes de unir: `many-to-many` puede inflar filas.
+- **Evita el reciclaje no intencional en `cbind()`**: valida tamaños antes de unir.
+- **`apply()` convierte a matriz**: puede coaccionar tipos; para medias usa `rowMeans()/colMeans()`.
+- **Orden tras `merge()`**: por defecto `sort = TRUE` reordena; si quieres preservar orden, usa `sort = FALSE` o agrega un índice auxiliar.
+
+---
+
+## 6. Actividades evaluables 
+1. **Aprobado**: A partir de la tabla con `Nota1` y `Nota2`, definan una regla para `Aprobado` (≥ 3.0) y añadan la variable resultante a la tabla principal.
+2. **Tutores**: Construyan una tabla `tutores` con estudiantes seleccionados y hagan un **left join** con la tabla principal. Expliquen los `NA`.
+3. **Máximos por estudiante**: Obtengan el **máximo** entre `Nota1` y `Nota2` por fila y agréguenlo como nueva columna `Maximo`.
+4. **Resumen por grupos**: Usen un factor (p. ej., categorías de asistencia) para obtener un **promedio por grupo**.
+5. **Simulación**: Generen 100 muestras aleatorias y calculen la media de cada una. Resuman la **media** y **desviación** de esas 100 medias. Vinculen el resultado con la Ley de los Grandes Números.
+
+> **Sugerencia**: documenten brevemente cada paso ejecutado en clase y comenten las decisiones (elección de claves, manejo de NA, verificación de tamaños).
+
+---
+
+## 7. Cierre conceptual
+- **`rbind()`** agrega observaciones (filas).
+- **`cbind()`** agrega variables (columnas).
+- **`merge()`** integra fuentes por claves (`by`, `all.x`, `all.y`, `all`, `by.x`, `by.y`).
+- **`apply`** y variantes permiten resumir y transformar sin bucles explícitos (por filas, columnas, listas o grupos).
+- La práctica rigurosa incluye: **verificación de tamaños**, **control del orden**, **gestión de NA** y **revisión de duplicados** en las claves.
