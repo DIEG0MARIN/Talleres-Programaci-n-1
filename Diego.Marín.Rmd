@@ -1,0 +1,394 @@
+---
+title: "Taller de R — Manejo de bases de datos: R Stats"
+author: "Diego Fernando Marin Gaitan"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    code_folding: show
+  pdf_document:
+    number_sections: true
+lang: es
+fontsize: 11pt
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+set.seed(123)  # para reproducibilidad en los muestreos
+data("penguins") # Importación del dataframe
+```
+
+## Reglas para el taller
+
+-   Debe presentarlo de manera individual.
+    Usará las dos horas de la clase para desarrollarlo
+
+-   Puede usar asistente de IA.
+    Sin embargo, **debe** explicar lo que le sugiere la IA mediante el codigo vertical divulgativo.
+
+-   Debe usar este formato Rmd.
+    El nombre del archivo sera su nombre y apellido, por ejemplo: Julian.Fajardo.Rmd
+
+-   Debe enviarlo antes de la 1:00 pm.
+    No se aceptarán archivos que lleguen a la bandeja de entrada del correo, luego de esa hora.
+
+-   Se calificará por curva, luego es muy importante que se esfuerce por completar la mayor cantidad de puntos posible.
+
+-   Criterios de calificación: Mayor cantidad de puntos: 30%.
+    Codigo divulgativo y vertical: 30%.
+    Correcta resolucion de cada punto **usando las funciones vistas en clase.** 40%
+
+## Parte 1. Filtros base R
+
+1.  Filtra todos los pingüinos de especie Adelie.
+
+
+```{r}
+
+A <- penguins[penguins$species == "Adelie", ] # Filtramos los pingüinos cuya especie es 'Adelie'
+
+
+head(A) # Se muestran las 6 primeras filas
+
+
+
+```
+
+
+
+
+2.  Filtra los pingüinos con masa corporal \> 4500 g (columna body_mass_g).
+
+```{r}
+
+
+B <- penguins[penguins$body_mass_g > 4500, ] # Filtramos los pingüinos cuya masa corporal es mayor a 4500 g
+
+head(B)
+
+```
+
+
+
+
+3.  Filtra los pingüinos de isla Dream con largo de pico \> 45 mm (bill_length_mm).
+
+```{r}
+
+C <- penguins[penguins$island == "Dream" & penguins$bill_length_mm > 45,] # Se nombra la variable C y alli se alojan la condición solicitada
+
+head(C) # Se imprimen las seis primeras filas
+
+```
+
+
+
+4.  De (A), devuelve solo species, island, body_mass_g.
+
+
+```{r}
+
+
+Dev_A <- A[, c("species", "island", "body_mass_g")] # Selecciona las columnas species, isalnd, body_mass
+head(Dev_A)
+
+
+```
+
+
+5.  Crea una vista con species, sex, flipper_length_mm para quienes no son de la isla Torgersen.
+
+
+```{r}
+
+D <- penguins[penguins$island != "Torgersen", ]  # Filtra los pingüinos de isla diferente a Torgersen
+D <- D[, c("species", "sex", "flipper_length_mm")]  # Selecciona las columnas requeridas
+
+head(D)  # Muestra las primeras filas de la vista resultante
+
+
+
+```
+
+
+
+6.  Selecciona pingüinos de especies Adelie o Gentoo (usa `%in%`).
+
+
+```{r}
+
+E <- penguins[penguins$species %in% c("Adelie", "Gentoo"), ]# Filtramos los pingüinos de las especies 'Adelie' o 'Gentoo' usando el operador '%in%'
+
+
+head(E)
+
+
+```
+
+
+
+
+
+
+7.  Excluye pingüinos con sex en {"male"} (solo hembras y NAs).
+
+
+```{r}
+
+F <- penguins[penguins$sex != "male" | is.na(penguins$sex), ]
+head(F)
+F
+
+```
+
+
+8.  Toma una muestra aleatoria de n = 20 filas de penguins sin reemplazo.
+
+```{r}
+
+
+G <- penguins[sample.int(nrow(penguins), size = 20, replace = FALSE), ] # Se Toma una muestra aleatoria de 20 filas sin reemplazo
+
+
+nrow(G) # Muestra el número de filas de la muestra (debe ser 20)
+G
+```
+
+
+9.  Toma una muestra de n = 60 con reemplazo.
+
+
+
+```{r}
+
+
+H <- penguins[sample.int(nrow(penguins), size = 60, replace = TRUE), ]# Tomamos una muestra aleatoria de 60 filas con reemplazo
+
+# Muestra el número de filas de la muestra (debe ser 60)
+nrow(H)
+H
+
+
+```
+
+
+10. Toma una muestra de 10 pingüinos únicamente de especie Gentoo.
+
+```{r}
+
+
+idx_gentoo <- which(penguins$species == "Gentoo")  # Obtiene los índices de los pingüinos de la especie 'Gentoo'
+
+
+I <- penguins[sample(idx_gentoo, size = 10, replace = FALSE), ]# Tomamos una muestra aleatoria de 10 pingüinos Gentoo
+
+# Muestra el número de filas de la muestra (debe ser 10)
+nrow(I)
+
+
+
+
+```
+
+
+
+
+
+
+11. Toma 5 pingüinos por especie (si una especie tiene menos de 5 sin NA en la clave que uses, toma el máximo posible).
+    Pistas: lapply() + dentro usar sample(); al final do.call(rbind, ...).
+    
+    
+    
+    
+```{r}
+
+
+lista_muestras <- lapply(unique(penguins$species), function(species) { # Usamos lapply para iterar sobre las especies únicas en el dataset
+  
+  
+  df <- penguins[penguins$species == species & !is.na(penguins$id), ] # Filtramos los pingüinos de cada especie y eliminamos filas con NA en 'id'
+  
+  
+  if (nrow(df) > 0) { # Verificamos que haya al menos 1 pingüino disponible (sin NA en 'id')
+    
+    n <- min(5, nrow(df)) # Tomamos el mínimo entre 5 y el número de pingüinos disponibles
+    
+    return(df[sample(1:nrow(df), n), ])  # Seleccionamos aleatoriamente n filas
+  } else {
+    return(NULL)  # Si no hay pingüinos disponibles, devolvemos NULL
+  }
+})
+
+
+lista_muestras <- Filter(Negate(is.null), lista_muestras) # Elimina los valores NULL que podrían haber sido devueltos si alguna especie no tenía pingüinos
+
+
+resultados <- do.call(rbind, lista_muestras) # Unimos todas las muestras en un solo dataframe
+
+
+head(resultados)
+
+
+
+```
+    
+    
+    
+
+## Parte 2. Manejo de bases de datos
+
+12. Parte penguins en dos mitades p1 y p2 por filas.
+
+```{r}
+
+
+n <- nrow(penguins) # Número total de filas en el dataframe penguins
+
+# Dividimos el dataframe en dos mitades de manera exacta
+p1 <- penguins[1:(n %/% 2), ]  # Primera mitad (usamos la división entera para evitar redondeos)
+p2 <- penguins[((n %/% 2) + 1):n, ]  # Segunda mitad
+
+
+cat("Aquí se indica cuántas filas tiene originalmente el dataframe:", n, "\n")
+
+# Verificamos las dimensiones de p1 y p2
+
+dim(p1)  # Muestra el número de filas y columnas de p1
+dim(p2)  # Muestra el número de filas y columnas de p2
+
+
+
+```
+
+
+
+13. Recompón el data.frame original con `rbind(p1, p2)` y verifica que las dimensiones coinciden.
+
+
+```{r}
+
+
+recompuesto <- rbind(p1, p2) # Recomponemos el dataframe original con rbind
+
+
+identical(dim(recompuesto), dim(penguins))  #  Verificación que las dimensiones coinciden con las del dataframe original Debería devolver TRUE si las dimensiones son iguales
+recompuesto
+
+
+```
+
+
+
+
+14. ¿Qué ocurre si las columnas no están en el mismo orden?
+    (sugiere un ejemplo simple).
+    
+    
+```{r}
+
+# Ejemplo simple de dataframes con columnas en diferente orden
+df1 <- data.frame(A = 1:3, B = 4:6)
+df2 <- data.frame(B = 7:9, A = 10:12)
+
+# Intentamos unir los dataframes con columnas en diferente orden
+resultado <- rbind(df1, df2)
+
+# Mostramos el resultado
+print(resultado)
+
+
+
+```
+    
+    
+
+15. Crea `p3 <- penguins[, c("id","species","island","bill_length_mm")]` y `p4 <- penguins[, c("bill_length_mm","island","species","id")]`.
+    Explica que contiene cada uno de estos data frame.
+    
+    
+    
+    
+```{r}
+
+
+penguins$id <- 1:nrow(penguins)  # Creamos una nueva columna 'id' con números del 1 hasta el número de filas
+
+
+p3 <- penguins[, c("id", "species", "island", "bill_length_mm")] # Crear el dataframe 'p3' seleccionando las columnas en el orden deseado
+
+
+p4 <- penguins[, c("bill_length_mm", "island", "species", "id")] # Crear el dataframe 'p4' seleccionando las mismas columnas pero en un orden diferente
+
+
+head(p3)
+head(p4)
+
+
+
+
+```
+    
+
+16. Usa `rbind(p3, p4)` y explica por qué funciona (o no) y qué hace R con los nombres de columnas.
+
+```{r}
+
+resultado_rbind <- rbind(p3, p4) # Usamos rbind para unir p3 y p4
+
+head(resultado_rbind)
+
+#Funciona porque R alinea las columnas por nombre, no por el orden
+
+```
+
+
+17. Crea un vector lógico `ok_peso = body_mass_g >= 4500`.
+
+```{r}
+
+
+ok_peso <- penguins$body_mass_g >= 4500 # Creamos un vector lógico donde TRUE indica que la masa corporal es mayor o igual a 4500
+
+
+head(ok_peso)
+
+
+```
+
+
+
+
+
+
+18. Une ok_peso a un subconjunto `mini <- penguins[, c("id","species","body_mass_g")]` con `cbind(mini, ok_peso)`.
+
+19. Explica el riesgo de usar cbind() cuando el orden de filas no coincide entre objetos.
+
+20. Baraja las filas de mini (por ejemplo, con sample()) y muestra por qué cbind(mini_barajado, ok_peso) es incorrecto si no reordenas ok_peso.
+
+21. Haz un inner join de penguins con tabla_especie por species.
+
+22. Repite como left join (todas las filas de penguins) y como full join (con tabla_especie).
+    ¿Cambian las dimensiones?
+
+23. Une penguins con tabla_medallas por id (inner y left).
+
+24. Observa el aumento de filas por duplicación (cartesiano cuando hay varias medallas por el mismo id).
+    Explica en 2–3 líneas.
+
+## Parte 3 — Familia apply
+
+25. Usa apply sobre las columnas numéricas de penguins para calcular: mínimo máximo media desviación estándar
+26. Estandariza (z = (x - media)/desv) las columnas numéricas de penguins usando lapply.
+27. Usa sapply para obtener el número de valores faltantes (NA) por columna en penguins.
+28. Calcula, por especie, la media de body_mass_g y la mediana de flipper_length_mm usando: tapply, by
+29. Simula el lanzamiento de un dado justo (valores 1–6) 100 veces. Calcula la proporción de 6 obtenidos.
+30. Usa replicate para repetir el experimento anterior 1000 veces y guarda los resultados en un vector.
+31. Grafica un histograma de las proporciones obtenidas en el ejercicio anterior. ¿Qué distribución reconoces?
+32. Simula 1000 medias muestrales de tamaño 30 de una variable normal estándar usando replicate.
+33. Calcula la media y desviación estándar de esas medias muestrales. Compáralas con los valores teóricos esperados.
