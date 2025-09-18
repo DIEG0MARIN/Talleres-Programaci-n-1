@@ -1,0 +1,249 @@
+---
+title: "dplyr — Parte 1 (básico a intermedio)"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    theme: readable
+---
+
+
+
+# Propósito general
+Recorrido por **dplyr** desde lo básico hasta un nivel intermedio, usando `mtcars`. 
+
+
+
+
+
+
+**Objetivos**
+- Manejar operaciones básicas: *filtrar, seleccionar, transformar, resumir y ordenar*.
+- Construir pipelines claros y verificables.
+- Aplicar percentiles, funciones ventana y proporciones por grupo.
+- Resolver mini-retos encadenando pasos.
+
+---
+
+```{r}
+
+data(mtcars)
+prueba <- mtcars
+head(prueba)
+
+```
+
+
+# Parte 1 — Básico
+
+```{r}
+glimpse(prueba)
+
+```
+
+
+
+
+## 1. Filtros — `filter()`
+**Idea:** conservar filas que cumplen condiciones lógicas.
+
+**Ejemplo A (potencia):** autos con **8 cilindros** y **hp > 200**.  
+**Comprobar:** ¿quedan pocas filas? ¿los hp mínimos superan 200?
+
+```{r}
+f1<- prueba %>% 
+  filter(cyl == 8 & hp >200)
+
+```
+
+
+**Ejemplo B (eficiencia):** autos con **mpg ≥ 25** *o* **peso (wt) < 2.5**.  
+**Comprobar:** ¿se cumple el *o lógico*? ¿qué pasa si usamos *y lógico*?
+
+
+```{r}
+
+f2 <- prueba %>% 
+  filter(mpg >= 25 | wt < 2.5)
+```
+---
+
+
+
+## 2. Selección — `select()`
+**Idea:** crear vistas con columnas relevantes.
+
+**Ejemplo A (rendimiento):** quedarse con `mpg`, `hp`, `wt`, `cyl`.  
+**Comprobar:** orden de columnas; que no falte ninguna.
+
+
+```{r}
+
+f3 <- prueba %>% 
+  select(mpg,hp,wt,cyl)
+# view(f3)
+
+```
+
+**Ejemplo B (exclusión):** quitar columnas poco útiles para el momento (p. ej. engranajes y carburadores).  
+**Comprobar:** que la tabla siga siendo válida y más “enfocada”.
+
+
+
+```{r}
+f4 <- prueba %>% 
+  select(-gear, -carb)
+```
+---
+
+## 3. Transformación — `mutate()`
+**Idea:** crear variables a partir de otras.
+
+**Ejemplo A (razón):** `eficiencia_pp = wt / hp` (peso por potencia).  
+**Comprobar:** magnitud esperada; identificar outliers.
+
+```{r}
+f5 <- prueba %>% 
+  mutate(eficiencia_pp = wt/hp)
+
+```
+
+
+
+**Ejemplo B (estandarizar):** `mpg_z` como estandarización simple de `mpg`.  Además seleccionemos las variables mpg y la estandarizamos para reducir el tamaño de la base.
+**Comprobar:** media cercana a 0 y dispersión razonable.
+
+```{r}
+
+f6 <-  prueba %>% 
+  mutate(mpg_z = (mpg -mean(mpg))/sd(mpg)) %>% 
+  select(mpg, mpg_z)
+  
+```
+
+
+
+
+
+---
+
+
+## 4. Resúmenes — `summarise()`
+**Idea:** colapsar filas en métricas.
+
+**Ejemplo A (global):** promedio y desviación estándar de `mpg`.  
+**Comprobar:** ¿hay outliers que vuelvan inestable la media? considerar mediana.
+
+**Ejemplo B (conteos):** total de observaciones y número de modelos con `mpg ≥ 25`.  
+**Comprobar:** coherencia con filtros previos.
+
+---
+
+## 5. Por grupos — `group_by()` + `summarise()`
+**Idea:** métricas por categoría.
+
+**Ejemplo A (por cilindros):** para cada `cyl`: media de `mpg`, `hp`; y cantidad de autos.  
+**Comprobar:** relación esperada entre cilindros, consumo y potencia.
+
+**Ejemplo B (por rangos de peso):** definir rangos (ligero/medio/pesado) y calcular media de `mpg`.  
+**Comprobar:** si el patrón de eficiencia cambia por peso.
+
+---
+
+## 6. Ordenamiento — `arrange()`
+**Idea:** ordenar filas por una o varias columnas.
+
+**Ejemplo A (desc):** autos con mayor `mpg` primero.  
+**Comprobar:** primera fila debe tener el `mpg` más alto.
+
+**Ejemplo B (multi-clave):** ordenar por `cyl` ascendente y `mpg` descendente.  
+**Comprobar:** desempates correctos dentro de cada cilindrada.
+
+---
+
+## 7. Encadenar — pipeline claro
+**Idea:** unir pasos para responder una pregunta en una sola lectura.
+
+**Ejemplo A (resumen por grupo):** por `cyl`, calcular `prom_mpg`, `prom_hp`, `n` y ordenar por `prom_mpg` desc.  
+**Comprobar:** columnas finales mínimas y nombres claros.
+
+**Ejemplo B (foco de negocio):** “¿Cuál es el **subconjunto top** de autos eficientes y livianos?”  
+- Filtrar por `mpg` alto y `wt` bajo,  
+- Seleccionar columnas clave,  
+- Ordenar por `mpg` desc y mostrar los primeros.
+
+---
+
+# Parte 2 — Intermedio
+
+## 1. Percentiles y segmentación
+**Idea:** crear reglas de negocio con cortes tipo 10%, 25%, mediana, 90%.
+
+**Ejemplo A (top 10% eficiencia):** definir umbral en `mpg` para el **10% superior** y listar autos que lo superan.  
+**Verificar:** tamaño del subconjunto ≈ 10% del total; sentido de los modelos resultantes.
+
+**Ejemplo B (IQR en peso):** obtener Q1 y Q3 de `wt` y marcar **outliers** livianos y pesados por regla clásica (1.5·IQR).  
+**Verificar:** cuántos outliers salen; si coinciden con la intuición de la distribución.
+
+---
+
+## 2. Funciones ventana (ranking, desplazamientos y acumulados)
+**Idea:** calcular métricas **fila-a-fila** dentro de grupos sin colapsar la tabla.
+
+**Ejemplo A (ranking por grupo):** dentro de cada `cyl`, asignar **ranking** por `mpg` (de mayor a menor) y mostrar los **top 2**.  
+**Verificar:** que el ranking se reinicie por cilindrada y no haya empates raros (usar `dense_rank`).
+
+**Ejemplo B (lag/lead y acumulados):** ordenar por `mpg` y crear:  
+- `mpg_anterior` (**lag**),  
+- `dif_mpg` respecto al anterior,  
+- `mpg_prom_acum` (**acumulado** tipo media acumulada).  
+**Verificar:** primeras filas con `NA` esperado; que el acumulado sea no decreciente cuando corresponde.
+
+---
+
+## 3. Proporciones y participaciones por grupo
+**Idea:** comparar aportes relativos dentro de cada categoría.
+
+**Ejemplo A (participación de potencia):** por `cyl`, calcular la **proporción** de `hp` de cada auto sobre el total de su grupo y ordenar del mayor al menor.  
+**Verificar:** que las proporciones por grupo sumen ≈ 1 (tolerancia numérica).
+
+**Ejemplo B (tasas dentro de celdas):** por combinación `cyl × transmisión (am)`, obtener:  
+- conteo de autos,  
+- **porcentaje** dentro del `cyl`,  
+- **porcentaje** dentro del total de la base.  
+**Verificar:** suma de porcentajes por fila/columna según el denominador elegido.
+
+> `am`: 0 = automática, 1 = manual.
+
+---
+
+## 4. Reglas compuestas con `case_when`
+**Idea:** etiquetar segmentos híbridos con reglas claras.
+
+**Ejemplo A (etiqueta eficiencia):** crear niveles **Alta / Media / Baja** usando cortes por `mpg` (≥ P75, P25–P75, < P25).  
+**Verificar:** distribución balanceada de etiquetas; coherencia con percentiles.
+
+**Ejemplo B (perfil combinado):** marcar **“deportivos eficientes”** si: `hp` alto *y* `mpg` por encima de mediana del grupo de `cyl`.  
+**Verificar:** casos borde; documentar la regla para evitar ambigüedades.
+
+---
+
+## 5. Mini-retos (pipelines de varios pasos)
+**Reto 1 — “Top dentro de top”**  
+- Tomar autos en el **25% superior de mpg**.  
+- Dentro de ese subconjunto, ranking por **peso ascendente** y mostrar **los 5 más livianos** con `mpg`, `wt`, `hp`.  
+- Conclusión: ¿hay trade-off peso vs potencia?
+
+**Reto 2 — “Participación líder por cilindrada”**  
+- Por cada `cyl`, identificar el **auto con mayor participación** de `hp` en su grupo.  
+- Reportar la **participación (%)** y el **gap** vs el segundo lugar.  
+- Conclusión: ¿qué cilindrada está más “concentrada” en potencia?
+
+**Reto 3 — “Semáforo de desempeño”**  
+- Definir un puntaje simple (escalar `mpg` y penalizar `wt`).  
+- Asignar color **Verde/Amarillo/Rojo** por terciles del puntaje.  
+- Entregar un ranking global y por `cyl`.
+
+
