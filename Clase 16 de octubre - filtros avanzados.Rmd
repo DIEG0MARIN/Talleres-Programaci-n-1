@@ -1,0 +1,394 @@
+---
+title: "Filtros avanzados con dplyr e introducción a tidyr (usando `mpg`)"
+author: " "
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+  pdf_document:
+    toc: true
+    number_sections: true
+fontsize: 11pt
+geometry: margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, collapse = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 0) Paquetes y datos
+
+Usaremos una base *pequeña* (`mpg`) para transformar y resumir, y dos tibbles diminutas para *joins*.
+
+```{r}
+library(tidyverse)   # dplyr, ggplot2, etc.
+library(ggplot2)     # trae la base mpg
+```
+
+### 0.1 Copia en español de `mpg` (solo nombres)
+
+```{r}
+autos <- ggplot2::mpg |>
+  rename(
+    fabricante = manufacturer,
+    modelo = model,
+    cilindraje = displ,
+    anio = year,
+    cilindros = cyl,
+    transmision = trans,
+    traccion = drv,
+    ciudad_mpg = cty,
+    autopista_mpg = hwy,
+    combustible = fl,
+    clase = class
+  )
+
+glimpse(autos)
+```
+
+# Parte 1 — `between()`
+
+**Qué es:** un atajo legible para “x está entre a y b (incluidos)”.
+
+**Sintaxis**
+
+``` r
+between(x, izquierda, derecha) # equivalente a: x >= izquierda & x <= derecha 
+```
+
+**Por qué importa:** evita repetir el nombre de la variable y reduce errores con `>=`/`<=`.
+
+Haga un filtro en que incluyamos solo autos compactos y "midsize", con cilindraje en 1.5 y 3 litos  y rendimiento en ciudad mayor o igual a 20
+
+**Ejemplo**
+
+```{r}
+
+out1 <- autos %>% 
+  filter(clase %in% c("compact", "midsize"),# 1er filtro
+         between(cilindraje,1.5,3), #2do filtro
+         ciudad_mpg >=20 ) %>% 
+  
+select(fabricante,modelo,clase,ciudad_mpg,autopista_mpg)
+
+out1
+
+
+
+```
+
+# Parte 2 — Texto con `str_starts()` + `regex()` y `ignore_case`
+
+**Qué es:** filtrar por cadenas que **empiezan** con un patrón; `regex()` permite opciones como mayúsculas/minúsculas.
+
+**Sintaxis**
+
+``` r
+str_starts(x, pattern) regex(patron, ignore_case = TRUE/FALSE) 
+```
+
+**Ejemplo (fabricantes que empiezan por “t/T”)**
+
+```{r}
+
+out2 <- autos %>% 
+  filter(str_starts(fabricante, # Se coloca la columna de caracteres que se quiere filtrar
+                    regex("^t",ignore_case = TRUE) #  se coloca el patron que busca y ubica los registros
+                    )) %>% 
+  
+  
+  select(fabricante,modelo)
+
+out2
+
+```
+
+-   `^` ancla el inicio del texto.
+
+-   `ignore_case = TRUE` hace que coincidan “t” y “T”.
+
+-   Si pones `ignore_case = FALSE`, solo capturas “t” minúscula
+
+-   **Tip NA:** si hay `NA` en `fabricante`, puedes tratarlos como vacío
+
+**Regex** significa **“regular expression”** o **expresión regular**. Es un lenguaje pequeño dentro de los lenguajes de programación que sirve para **buscar, identificar o reemplazar patrones dentro de texto**, no solo palabras exactas.
+
+Una expresión regular es una **regla de búsqueda flexible**. Mientras una búsqueda normal busca “Toyota” exactamente, una expresión regular puede buscar *“toda palabra que empiece por T, tenga una o más letras y termine en a”*.
+
+### Sintaxis básica (los símbolos más comunes)
+
+| Símbolo | Significado | Ejemplo | Coincide con |
+|------------------|------------------|------------------|------------------|
+| `.` | Cualquier carácter | `c.r` | “car”, “cor”, “cur” |
+| `^` | Inicio del texto | `^t` | palabras que comienzan con “t” |
+| `$` | Fin del texto | `mpg$` | palabras que terminan en “mpg” |
+| `[abc]` | Uno de esos caracteres | `[th]onda` | “t**onda**” o “h**onda**” |
+| `[^abc]` | Cualquiera **excepto** esos | `[^0-9]` | caracteres que no sean dígitos |
+| `*` | Cero o más repeticiones | `to*y` | “ty”, “toy”, “tooy”, “toooy” |
+| `+` | Una o más repeticiones | `[0-9]+` | “123”, “45”, “7” |
+| `?` | Cero o una repetición | `colou?r` | “color” o “colour” |
+| `\\b` | Frontera de palabra | `\\bt` | palabras que empiezan con “t” |
+| `\\d` | Dígito (0–9) | `\\d{4}` | “2025”, “1234” |
+
+### En R
+
+Las funciones de `stringr` (como `str_detect()`, `str_starts()`, `str_replace()`) usan expresiones regulares por defecto.\
+Puedes especificar un patrón regex explícito con la función `regex()`:
+
+``` r
+regex("patrón", ignore_case = TRUE) 
+```
+
+Por ejemplo:
+
+``` r
+str_starts(fabricante, regex("^t", ignore_case = TRUE)) 
+```
+
+-   `^t` busca fabricantes cuyo texto **empiece** por “t” o “T”.
+
+-   `ignore_case = TRUE` indica que no se distinga mayúsculas/minúsculas.
+
+**Regex** es una herramienta para *reconocer patrones* dentro de cadenas de texto.
+
+-   Es potente, compacta y ampliamente usada en R, Python, y casi todos los lenguajes.
+
+-   En tu clase, se usa para filtrar palabras que empiecen o contengan ciertas letras, como:
+
+``` r
+filter(str_starts(fabricante, regex("^t", ignore_case = TRUE))) 
+```
+
+"dame solo los fabricantes que empiecen por T o t”.
+
+# Parte 3 — `str_detect()` y negación `!`
+
+**Qué es:** detectar si **aparece** un patrón **en cualquier parte** del texto. Combínalo con `!` para excluir.
+
+**Sintaxis**
+
+``` r
+str_detect(x, pattern)   # TRUE si encuentra el patrón 
+```
+
+**Ejemplo (modelos que NO contienen “4”)**
+
+```{r}
+
+
+out3 <- autos %>% 
+  filter(!str_detect(modelo,"4")) %>% 
+  select(fabricante,modelo,transmision) %>% 
+  arrange(fabricante)
+
+out3
+
+```
+
+# Parte 4 — Filtrar por grupo + `ungroup()`
+
+**Qué es:** aplicar condiciones **dentro de cada grupo** y luego quitar la agrupación para evitar efectos colaterales.
+
+**Patrón**
+
+```         
+df |>   
+  group_by(grupo) |>   
+  filter(condición_por_grupo) |>   
+  ungroup()   ... # pasos normales (arrange, mutate, etc.) 
+```
+
+**Ejemplo (máximo `autopista_mpg` por clase)**
+
+```{r}
+
+out4 <- autos %>% 
+  group_by(clase) %>% 
+  filter(autopista_mpg == max(autopista_mpg,na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  arrange(clase,desc(autopista_mpg)) %>% 
+  select(clase, fabricante, modelo,autopista_mpg) 
+  
+  
+out4
+
+```
+
+-   `group_by(clase)` hace el cálculo por clase.
+
+-   `ungroup()` **rompe** la agrupación para que lo siguiente ya no sea “por grupo”.
+
+Esto es importante porque:
+
+-   Evita comportamientos inesperados si luego ordenas o resumes.
+
+-   Asegura que `arrange()` y `select()` actúen sobre el conjunto completo, no dentro de cada grupo.
+
+-   Hace que la salida final sea una tibble simple, no un “grouped tibble”.
+
+-   En resumen: `ungroup()` es como decir “ya terminé de trabajar por grupos, ahora vuelve a ver toda la tabla como un solo conjunto”.
+
+# Parte 5 — `if_any()` y `if_all()` (condiciones sobre varias columnas)
+
+**Qué son:** atajos legibles para aplicar una condición a **varias** columnas a la vez.
+
+**Sintaxis**
+
+```         
+if_any(columnas, ~ condición_con_.x)  # OR: alguna columna cumple if_all(columnas, ~ condición_con_.x)  # AND: todas las columnas cumplen 
+```
+
+Aceptan selectores tidy: `where(is.numeric)`, `starts_with("c")`, etc.
+
+Filtre esta base de tal forma que: si una de las columnas es numerica, aplique un filtro, por ejemplo que x > 40
+
+**Ejemplos**
+
+```{r}
+
+# si al menos una columna es numerica
+
+out5 <- autos %>% 
+  filter(if_any(where(is.numeric), ~ .x > 40)) %>% 
+  select(fabricante,modelo,cilindros,ciudad_mpg) 
+
+out5
+
+
+```
+
+Las funciones **`if_any()`** y **`if_all()`** (de `dplyr`) son formas modernas y poderosas de aplicar condiciones sobre **varias columnas a la vez** dentro de `filter()`, `mutate()`, o `summarise()`.\
+Son parte del estilo **tidyselect**, lo que significa que aceptan selectores como `starts_with()`, `ends_with()`, `contains()`, `where(is.numeric)`, etc.
+
+``` r
+if_any(columnas, condición) 
+if_all(columnas, condición) 
+```
+
+-   `columnas`: qué columnas quieres evaluar (puedes usar nombres, rangos o selectores).
+
+-   `condición`: una **expresión anónima** que se aplica a cada columna seleccionada; dentro de ella, `.x` representa los valores de esa columna.
+
+### `if_any()`
+
+**Significado:** Devuelve `TRUE` si **alguna** de las columnas cumple la condición.
+
+En `filter()`, esto mantiene las filas donde **al menos una** de las columnas especificadas cumple el criterio.
+
+### Ejemplo simple
+
+```{r}
+
+```
+
+-   `where(is.numeric)` selecciona todas las columnas numéricas.
+
+-   `~ .x > 40` significa: “esta columna tiene algún valor mayor que 40”.
+
+-   `if_any()` dice: “si **alguna de esas columnas numéricas** tiene un valor \> 40, conserva la fila”.
+
+En otras palabras: Si en una fila cualquiera de las columnas numéricas supera 40 (por ejemplo, `autopista_mpg = 44`), esa fila se queda.
+
+### Equivalente tradicional (más engorroso):
+
+``` r
+filter(autopista_mpg > 40 | ciudad_mpg > 40 | cilindros > 40) 
+```
+
+### `if_all()`
+
+**Significado:** Devuelve `TRUE` solo si **todas** las columnas cumplen la condición.
+
+En `filter()`, conserva filas donde **todas las columnas seleccionadas** cumplen el criterio.
+
+### Ejemplo simple
+
+```{r}
+
+```
+
+-   `starts_with("c")` selecciona columnas que comienzan con “c”:\
+    → `cilindraje`, `cilindros`, `ciudad_mpg`, etc.
+
+-   `~ .x > 4` aplica el test “mayor que 4” a cada una.
+
+-   `if_all()` exige que **todas esas columnas** sean \> 4 en una misma fila.
+
+Resultado:
+
+Solo quedan autos donde *todas* las variables que comienzan con “c” son mayores a 4.
+
+### Equivalente tradicional:
+
+``` r
+filter(cilindraje > 4 & cilindros > 4 & ciudad_mpg > 4) 
+```
+
+### Comparación rápida
+
+| Función | Lógica | Conserva filas si… | Ejemplo mental |
+|------------------|------------------|------------------|------------------|
+| `if_any()` | OR | **al menos una** columna cumple | “alguna variable supera 40” |
+| `if_all()` | AND | **todas** las columnas cumplen | “todas las variables son \> 4” |
+
+### Ejemplo ilustrativo con el dataset `autos`
+
+```{r}
+
+```
+
+### Otros usos
+
+### En `mutate()`
+
+Puedes crear una nueva variable que resuma condiciones múltiples:
+
+```{r}
+
+```
+
+→ `flag_eficiente` será `TRUE` si el auto tiene **más de 30 mpg en ciudad o autopista**.
+
+### En `summarise()`
+
+Puedes contar cuántas columnas cumplen una condición:
+
+``` r
+```
+
+### En resumen
+
+| Función | Evalúa | Devuelve `TRUE` si… | Útil para |
+|------------------|------------------|------------------|------------------|
+| `if_any()` | varias columnas | **al menos una** cumple | detectar casos donde “algo” sucede |
+| `if_all()` | varias columnas | **todas** cumplen | verificar consistencia o calidad de datos |
+
+Ambas simplifican código repetitivo, hacen más legibles los filtros y se integran perfectamente con el estilo declarativo de `dplyr`.
+
+# Parte 6 — Negaciones y “listas” con `%in%`
+
+**Qué es:** filtrar excluyendo categorías de forma limpia.
+
+**Sintaxis**
+
+``` r
+x %in% c("a","b","c")     # pertenece !(x %in% c("a","b","c"))  # NO pertenece 
+```
+
+**Ejemplo**
+
+``` r
+```
+
+# Parte 7 — Manejo fino de `NA` en filtros
+
+**Por qué importa:** `NA` en condiciones lógicas produce `NA` (no TRUE), y `filter()` los descarta.
+
+**Patrón seguro**
+
+``` r
+filter(!is.na(var_num), var_num > 0) # o reemplazar NA por un valor “neutral” 
+```
