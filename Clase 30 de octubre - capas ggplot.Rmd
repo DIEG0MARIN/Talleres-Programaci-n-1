@@ -1,0 +1,344 @@
+---
+title: "ggplot2: Progresión en 4 capas (mpg) — Versión Docente"
+author: "Profesor Julián Fajardo"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 0) Preparación: datos y renombre
+
+```{r librerias-y-datos}
+library(tidyverse)
+data(mpg)
+
+# Renombrar a español (sin tildes)
+mpg_es <- mpg |>
+  rename(
+    fabricante     = manufacturer,
+    modelo         = model,
+    cilindrada     = displ,
+    anio           = year,
+    cilindros      = cyl,
+    transmision    = trans,
+    traccion       = drv,      # f, r, 4
+    ciudad_mpg     = cty,
+    carretera_mpg  = hwy,
+    combustible    = fl,
+    clase          = class
+  ) |>
+  mutate(
+    clase    = as.factor(clase),
+    traccion = factor(traccion, levels = c("f","r","4"),
+                      labels = c("Delantera","Trasera","4x4"))
+  )
+
+glimpse(mpg_es)
+```
+
+------------------------------------------------------------------------
+
+## 1) Capa: Datos
+
+**Embudo** - **Idea:** ¿Qué voy a graficar? - **Función:**
+`ggplot(data = ...)` - **Parámetro clave:** `data` = tibble/data.frame -
+**Detalle:** sin geometría no se dibuja; solo se declara la fuente.
+
+```{r capa1-datos}
+ggplot(data = mpg_es # aca colocas la primera capa
+       )
+```
+
+El grafico se genera, pero vacío porque no hemos especificado ni la
+parte estetica ni la geometria.
+
+```{r}
+ggplot(data = mpg_es, 
+       mapping = aes(x = cilindros, # aqui colocas la variable del ejex
+                     y = cilindrada # aqui colocas el ejey
+                     ) # esta seria la segunda capa
+       )
+```
+
+No hay nada adicional a los ejes. Procedamos con la capa tres, la
+geometria
+
+```{r}
+ggplot(mpg_es, # no es obligatoro que coloques "data". Capa 1
+       aes(x = cilindros, y = cilindrada) # no es obligatorio colocar "mapping". Capa 2
+       ) +
+       geom_point() # esta es la capa 3
+```
+
+Tambien puedo usar el lenguaje de embudo, como sigue:
+
+```{r}
+mpg_es |>
+  ggplot(aes(x = cilindros, # esto es lo que va en el eje horizontal
+             y = cilindrada # esto es lo que va en el eje vertical
+             )
+         ) +
+  geom_boxplot()
+```
+
+Aqui vemos como se dibuja una geometria sin segmentar nada. Asi, no es
+tan informativa Veremos como segmentar información. Para ello, debo
+tener variable categoricas (variable de tipo factor)
+
+
+```{r}
+mpg_es <- mpg_es |> 
+  mutate(cilindros = as.factor(cilindros))
+```
+
+Ahora ya podemos hace una grafica segmentada:
+
+```{r}
+mpg_es |>
+  ggplot(aes(x = cilindros, y = cilindrada, color = cilindros)
+         ) +
+  geom_boxplot()
+```
+
+Ahora veamos otro tipo de diseño de boxplot por segmentacion:
+
+```{r}
+mpg_es |>
+  ggplot(aes(x = cilindros, y = cilindrada, fill = cilindros)
+         ) +
+  geom_boxplot(alpha = 0.5) # en cada geometria podemos editar configuraciones, aqui alpha es la transparencia del relleno
+```
+
+Ejercicio. Hace una grafica de dispersion rend en carretera vs rend en
+ciudad.
+
+### Personalizacion del color en la capa 3
+
+```{r}
+mpg_es |>
+  ggplot(aes(x = cilindrada, y = carretera_mpg)) + # capas 1 y 2
+  geom_point(color = "firebrick " , alpha = 0.6 , size = 2) # capa 3
+
+```
+
+Con colores personalizados:
+
+```{r}
+mpg_es |>
+   ggplot(aes(x = cilindrada, y = carretera_mpg, color = clase)) +
+  geom_point(size = 2.5)+
+  scale_color_manual(name = "tipo de vehiculo",
+                     values = c("suv"= "blue", "compact" = "red" , "midsize" = "purple"))
+
+```
+
+Hay algunas paletas predefinidas:
+
+```{r}
+
+mpg_es |>
+   ggplot(aes(x = cilindrada, y = carretera_mpg, color = clase)) +
+  geom_point(size = 2.5)+
+  scale_color_brewer(palette = "Set4", name = "Clase")
+
+
+
+
+```
+
+Hay escalas continuas (cuando la variable es numerica)
+
+```{r}
+
+mpg_es |>
+   ggplot(aes(x = ciudad_mpg
+              , y = carretera_mpg, color = ciudad_mpg)) +
+  geom_point(size = 2.5) +
+  scale_color_gradient(low = "skyblue", high = "darkblue", name = "mpgciudad")
+
+
+
+```
+
+Otras geometrias:
+
+```{r}
+
+mpg_es |>
+  ggplot(aes(x = cilindros, y = cilindrada, fill = clase)) +
+  geom_violin(alpha = 0.5) +
+  geom_point(size = 2)
+  scale_fill_brewer(palette = "Pastel1", name = "Cilindros")
+  
+
+
+
+```
+
+## 4) Capa: Transformaciones estadísticas (`stat_*`) — Motivación y sentido
+
+Hasta este punto, hemos visto cómo los gráficos muestran **los datos tal
+como son**.\
+Pero hay momentos en los que queremos que el gráfico **nos ayude a
+pensar**, no solo a mirar.\
+Ahí entra en escena la cuarta capa: las **transformaciones
+estadísticas** (`stat_*`).
+
+Podemos imaginar las capas de `ggplot2` como una **cocina de datos**:
+
+| Capa | Qué hace | Símil en la cocina |
+|----------------|--------------------|------------------------------------|
+| 1\. Datos | Son los ingredientes crudos | La despensa |
+| 2\. Mapeos estéticos | Decidimos qué ingrediente va dónde | La receta |
+| 3\. Geometrías | Damos forma y presentación al plato | El emplatado |
+| 4\. Transformaciones estadísticas | Cocinamos o transformamos los ingredientes | El proceso de cocción |
+
+Sin esta cuarta capa, el gráfico solo mostraría datos “crudos”.\
+Con ella, **podemos calcular directamente dentro del gráfico** —por
+ejemplo, promedios, conteos, densidades o tendencias— sin tener que
+hacer esos cálculos antes con `summarise()` o `mutate()`.
+
+### Ejemplo simple
+
+```{r stat-count-oculto}
+
+# Se realizara un grafico de barras
+
+mpg_es |>
+  ggplot(aes(x = traccion, fill = traccion )) +
+  geom_bar()
+
+
+```
+
+*Comentario:* aquí `ggplot2` está usando internamente `stat_count()`
+para calcular alturas.
+
+```{r stat-count-explicito}
+
+mpg_es |> 
+  ggplot(aes(traccion, fill = traccion)) + 
+  stat_count()
+
+
+```
+
+------------------------------------------------------------------------
+
+### A) `geom_bar()` (stat = "count") vs `geom_col()` (stat = "identity")
+
+```{r stat-count-vs-identity}
+
+
+p1 <- mpg_es |>
+  ggplot(aes(x = clase , fill = clase)) +
+  geom_bar(color = "white", alpha = 0.7) + 
+  labs(title = "Grafico de secuencias" , subtitle = " Por tipo de vehiculo",
+       x = "clase" , y = "Frecuencia")
+
+theme_minimal()
+
+
+
+p2<- mpg_es |>
+   count(clase) |>
+   ggplot(aes(x = clase ,y = n,  fill = clase)) +
+  geom_col()
+
+p1;p2
+
+```
+
+------------------------------------------------------------------------
+
+### B) `geom_histogram()` → `stat_bin()`
+
+```{r stat-bin}
+
+
+
+
+```
+
+------------------------------------------------------------------------
+
+### C) `geom_density()` → `stat_density()`
+
+```{r stat-density}
+
+```
+
+------------------------------------------------------------------------
+
+### D) `geom_smooth()` → `stat_smooth()`
+
+```{r stat-smooth}
+mpg_es |>
+  ggplot(aes(x = cilindrada, y = carretera_mpg, color = clase)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(se = FALSE, linewidth = 1.2) +
+  labs(title = "Tendencia de mpg en carretera según cilindrada", x = "Cilindrada (L)", y = "mpg carretera") +
+  scale_color_brewer(palette = "Dark2") +
+  theme_minimal()
+```
+
+------------------------------------------------------------------------
+
+### E) `stat_summary()` (resúmenes directos)
+
+```{r stat-summary}
+
+mpg_es |>
+  ggplot(aes(x = traccion, y = carretera_mpg)) +
+  stat_summary(fun = mean, geom = "bar", fill = "steelblue", alpha = 0.6) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.3)
+
+```
+
+------------------------------------------------------------------------
+
+## Facetado (capa 5)
+
+Cuando una sola gráfica ya no alcanza para mostrar diferencias entre
+grupos, necesitamos dividir la información sin perder la coherencia
+visual. El facetado permite eso: crea múltiples subgráficos (“paneles”)
+a partir de una o más variables categóricas, reutilizando las mismas
+escalas, ejes y geometrías.
+
+Este enfoque evita repetir código o crear gráficos por separado,
+manteniendo una narrativa visual uniforme. Por ejemplo, si analizamos el
+rendimiento de vehículos según el tipo de tracción o el número de
+cilindros, un gráfico único puede volverse ilegible. El facetado nos da
+una vista comparativa ordenada, donde cada panel responde a la misma
+pregunta, pero para un subconjunto distinto de los datos
+
+```{r}
+
+mpg_es |>
+ggplot(aes(x = cilindrada, y = carretera_mpg , color = traccion)) + 
+  geom_point() +
+  facet_wrap(~traccion)
+
+
+```
+
+```{r}
+
+
+```
+
+Con facet grid:
+
+```{r}
+
+
+```
